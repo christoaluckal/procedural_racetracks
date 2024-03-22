@@ -72,26 +72,56 @@ def midDisplace(points,difficulty=1.0,maxDisplacement=20.0):
         disp = np.dot(disp,rot_mat)
         disp*= dispLen;  
         new_points[i*2] = points[i];  
+        print("P1:",points[i])
+        print("P2:",points[(i+1)%len(points)])
         midpoint = points[i]+points[(i+1)%len(points)]
         midpoint /= 2
+        print("D:",disp)
+        print("M:",midpoint)
         new_points[i*2 + 1] = midpoint + disp
+        print("NP:",new_points[i*2 + 1])
+        print("="*50+"\n")
         
 
     return new_points
 
 p = genRandPoints(300,300,10,20)
 
-ch_p1 = getHull(p)
+p = [[131.0008727,   68.80803387],
+ [161.98557471,  85.610423  ],
+ [274.25613956, 141.41933577],
+ [199.02731636,  66.1488644 ],
+ [167.78733069,  22.63214154],
+ [190.02579574,  54.40500327],
+ [276.39588472,  76.13261868],
+ [201.19054244, 279.16317863],
+ [237.66476532,  36.74312189],
+ [ 56.27068422, 226.25674367],
+ [ 27.36188606, 257.71809223],
+ [ 34.14654044, 186.15381224],
+ [ 73.67953987, 143.27284328],
+ [148.67600726,  41.06664329],
+ [209.79072518, 177.53878815],
+ [182.81410306,  76.79435112],
+ [ 28.02045693, 263.74293034],
+ [226.83152666, 276.68664251],
+ [149.46325581, 183.71579838],
+ [207.61437153, 126.77017857]]
 
+p = np.array(p,dtype=float)
+
+ch_p1 = getHull(p)
+print(ch_p1)
+ch_p1 = pushApartN(ch_p1)
 
 ch_p2 = midDisplace(ch_p1,difficulty=1,maxDisplacement=10)
-ch_p2 = pushApartN(ch_p2,itr=3)
+ch_p2 = pushApartN(ch_p2)
 print(ch_p2)
 
 
-plt.scatter(p[:,0],p[:,1],color='green')
+plt.scatter(p[:,0],p[:,1],s=60,color='green')
 plt.plot(ch_p1[:,0],ch_p1[:,1],color='orange')
-plt.scatter(ch_p1[:,0],ch_p1[:,1],color='orange')
+plt.scatter(ch_p1[:,0],ch_p1[:,1],s=80,color='orange')
 plt.plot(ch_p2[:,0],ch_p2[:,1],color='red')
 plt.scatter(ch_p2[:,0],ch_p2[:,1],color='red')
 plt.show()
