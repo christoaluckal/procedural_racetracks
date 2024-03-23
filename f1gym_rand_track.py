@@ -44,13 +44,21 @@ parser.add_argument('--turn_rate', type=float, default=0.31, help='Turn rate of 
 parser.add_argument('--name', type=str, default='0', help='Name of the track.')
 parser.add_argument('--save', type=bool, default=False, help='Save the track.')
 parser.add_argument('--scale', type=float, default=6.0, help='Scale of the track.')
-parser.add_argument('--width', type=float, default=10.0, help='Width of the track.')
+parser.add_argument('--width', type=float, default=30.0, help='Width of the track.')
 args = parser.parse_args()
 
 np.random.seed(args.seed)
 
 turn_rate = args.turn_rate
 
+
+if turn_rate*1000 < 10:
+    tr_name = f"_00{math.ceil(int(turn_rate*1000))}_{int(args.scale*10)}"
+elif turn_rate*1000 < 100:
+    tr_name = f"_0{math.ceil(int(turn_rate*1000))}_{int(args.scale*10)}"
+else:
+    tr_name = f"_{math.ceil(int(turn_rate*1000))}_{int(args.scale*10)}"
+    
 if not os.path.exists('maps'):
     print('Creating maps/ directory.')
     os.makedirs('maps')
@@ -71,6 +79,8 @@ def create_track():
 
     # Create checkpoints
     checkpoints = []
+    cxs = []
+    cys = []
     for c in range(CHECKPOINTS):
         alpha = 2*math.pi*c/CHECKPOINTS + np.random.uniform(0, 2*math.pi*1/CHECKPOINTS)
         rad = np.random.uniform(TRACK_RAD/3, TRACK_RAD)
@@ -82,6 +92,10 @@ def create_track():
             start_alpha = 2*math.pi*(-0.5)/CHECKPOINTS
             rad = 1.5*TRACK_RAD
         checkpoints.append( (alpha, rad*math.cos(alpha), rad*math.sin(alpha)) )
+        cxs.append(rad*math.cos(alpha))
+        cys.append(rad*math.sin(alpha))
+        
+
     road = []
 
     # Go from one checkpoint to another to create track
@@ -175,7 +189,7 @@ def create_track():
 
     track_poly: shp.Polygon = shp.Polygon(track_xy)
 
-    import matplotlib.pyplot as plt 
+    
 
     fig, ax = plt.subplots()
     fig.set_size_inches(20, 20)
@@ -194,35 +208,36 @@ def create_track():
 
     track_xy_offset_in_np = np.array([extx, exty]).T
     track_xy_offset_out_np = np.array([intx, inty]).T
+    
+    dist = 0
+    for i in range(len(track_xy) - 1):
+        dx = (track_xy[i+1][0] - track_xy[i][0])**2
+        dy = (track_xy[i+1][1] - track_xy[i][1])**2
+        dist += np.sqrt(dx*0.05 + dy*0.05)
+    
+    print('Track length: ', dist)
+
 
     if not args.save:
+        print("A")
         ax.plot(*track_xy.T, color='black', linewidth=3)
         ax.plot(*track_xy_offset_in_np.T, color='black', linewidth=3)
         ax.plot(*track_xy_offset_out_np.T, color='black', linewidth=3)
         ax.set_aspect('equal')
-        ax.set_xlim(-180, 300)
-        ax.set_ylim(-300, 300)
+        # ax.set_xlim(-180, 300)
+        # ax.set_ylim(-300, 300)
         plt.axis('off')
         # plt.tight_layout()
         plt.show()
-
-        dist = 0
+        exit(1)
         
-        for i in range(len(track_xy) - 1):
-            dx = (track_xy[i+1][0] - track_xy[i][0])**2
-            dy = (track_xy[i+1][1] - track_xy[i][1])**2
-            dist += np.sqrt(dx + dy)
         
-        print('Track length: ', dist)
     
 
-        exit(1)
+    return track_xy, track_xy_offset_in_np, track_xy_offset_out_np, dist
 
 
-    return track_xy, track_xy_offset_in_np, track_xy_offset_out_np
-
-
-def convert_track(track, track_int, track_ext, iter):
+def convert_track(track, track_int, track_ext, dist):
 
     # converts track to image and saves the centerline as waypoints
     fig, ax = plt.subplots()
@@ -231,11 +246,11 @@ def convert_track(track, track_int, track_ext, iter):
     ax.plot(*track_ext.T, color='black', linewidth=3)
     plt.tight_layout()
     ax.set_aspect('equal')
-    ax.set_xlim(-180, 300)
-    ax.set_ylim(-300, 300)
+    ax.set_xlim(-1000, 1000)
+    ax.set_ylim(-1000, 1000)
     plt.axis('off')
     # plt.show()
-    plt.savefig('maps/map' + str(args.name) + '.png', dpi=80)
+    plt.savefig('maps/map' + str(tr_name) + '.png', dpi=80)
 
     map_width, map_height = fig.canvas.get_width_height()
     print('map size: ', map_width, map_height)
@@ -251,16 +266,16 @@ def convert_track(track, track_int, track_ext, iter):
     map_origin_y = -origin_y_pix*0.05
 
     # convert image using cv2
-    cv_img = cv2.imread('maps/map' + str(args.name) + '.png', -1)
+    cv_img = cv2.imread('maps/map' + str(tr_name) + '.png', -1)
     # convert to bw
     cv_img_bw = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
     # saving to img
-    cv2.imwrite('maps/map' + str(args.name) + '.png', cv_img_bw)
-    cv2.imwrite('maps/map' + str(args.name) + '.pgm', cv_img_bw)
+    cv2.imwrite('maps/map' + str(tr_name) + '.png', cv_img_bw)
+    cv2.imwrite('maps/map' + str(tr_name) + '.pgm', cv_img_bw)
 
     # create yaml file
-    yaml = open('maps/map' + str(args.name) + '.yaml', 'w')
-    yaml.write('image: map' + str(args.name) + '.pgm\n')
+    yaml = open('maps/map' + str(tr_name) + '.yaml', 'w')
+    yaml.write('image: map' + str(tr_name) + '.pgm\n')
     yaml.write('resolution: 0.062500\n')
     yaml.write('origin: [' + str(map_origin_x) + ',' + str(map_origin_y) + ', 0.000000]\n')
     yaml.write('negate: 0\noccupied_thresh: 0.45\nfree_thresh: 0.196')
@@ -268,19 +283,30 @@ def convert_track(track, track_int, track_ext, iter):
     plt.close()
 
     # saving track centerline as a csv in ros coords
-    waypoints_csv = open('centerline/map' + str(args.name) + '.csv', 'w')
+    waypoints_csv = open('centerline/map' + str(tr_name) + '.csv', 'w')
+    new_wp = []
     for row in xy_pixels:
+        new_wp.append([0.05*row[0],0.05*row[1]])
         waypoints_csv.write(str(0.05*row[0]) + ', ' + str(0.05*row[1]) + '\n')
     waypoints_csv.close()
+    
+    dist2 = 0
+    for i in range(len(new_wp)-1):
+        dx = (new_wp[i+1][0]-new_wp[i][0])**2
+        dy = (new_wp[i+1][1]-new_wp[i][1])**2
+        dist2 += math.sqrt(dx+dy)
 
+    with open('generated.csv','a') as f:
+        f.write(f"{turn_rate},{args.scale},{dist},{dist2}\n")
 
 
 if __name__ == '__main__':
     for i in range(NUM_MAPS):
         try:
-            track, track_int, track_ext = create_track()
+            track, track_int, track_ext,distance = create_track()
+            convert_track(track, track_int, track_ext, distance)
         except Exception as e:
             print(e)
             print('Random generator failed, retrying')
             continue
-        convert_track(track, track_int, track_ext, i)
+        
